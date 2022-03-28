@@ -1,0 +1,44 @@
+#! /usr/bin/perl
+#use warnings;
+use strict;
+my $first = <<END;
+perl $^V ( $^O ) 
+Iperl 1.0.0 -- An enhanced Interactive perl. 
+type "exit" to exit  
+END
+my $file = $ENV{"HOME"}."/.iperl_history";
+
+if (-e $file)
+{ 
+	open(His,">>",$file);
+}
+else {
+	open(His,">",$file);
+	print "create file History [ $file ] ... \n";
+}
+
+print "$first";
+my $line = 1;
+my $code = "";
+while (1) {
+	print "\e[32min [$line]\e[0m: ";
+	my $input = <>;
+  chomp($input);
+	$code .= $input;
+	if($input eq "exit"){ exit(0); close(His);}
+	
+	if ($input =~ /print/) {
+  print "\n\e[31mout[$line]\e[0m: ";
+  my $res = eval($code);
+	warn($res) if $@;
+}
+else{
+	print "\n\e[31mout[$line]\e[0m: ";	
+	my $res = eval($code);
+	print "$res";
+	warn($res) if $@;
+}
+	print His "$input \n";
+	$line = $line + 1;
+	print "\n";
+} 
