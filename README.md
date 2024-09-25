@@ -8,7 +8,7 @@ cd iperl
 ```
 
 # View
-![[iperl.png]]
+<img src="iperl.png" />
 # Usage
 in terminal
 ```
