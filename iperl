@@ -1,44 +1,85 @@
-#! /usr/bin/perl
-#use warnings;
+#!/usr/bin/perl
 use strict;
+use warnings;
+use Term::ReadLine;
+
+# Initial message with variable interpolation
 my $first = <<END;
 perl $^V ( $^O ) 
-Iperl 1.0.0 -- An enhanced Interactive perl. 
-type "exit" to exit  
+Iperl 2.0.1 -- An enhanced Interactive Perl shell. 
+Type "exit" to quit.
 END
-my $file = $ENV{"HOME"}."/.iperl_history";
 
-if (-e $file)
-{ 
-	open(His,">>",$file);
-}
-else {
-	open(His,">",$file);
-	print "create file History [ $file ] ... \n";
+# History file
+my $history_file = $ENV{"HOME"} . "/.iperl_history";
+my $history_fh;
+
+# Open or create the history file
+if (-e $history_file) {
+    open($history_fh, '>>', $history_file) or die "Could not open history file: $!";
+} else {
+    open($history_fh, '>', $history_file) or die "Could not create history file: $!";
+    print "Created history file: [$history_file]\n";
 }
 
-print "$first";
+print "$first\n";
+
+# Initialize Term::ReadLine for better user input handling
+my $term = Term::ReadLine->new('Iperl');
+$term->ReadHistory($history_file) if -e $history_file;
+
+# Function to check if input has unbalanced braces
+sub has_unbalanced_braces {
+    my ($code) = @_;
+    my $open_braces  = () = $code =~ /\{/g;
+    my $close_braces = () = $code =~ /\}/g;
+    return $open_braces != $close_braces;
+}
+
+# Main interactive loop
 my $line = 1;
-my $code = "";
+my $code = '';
+
 while (1) {
-	print "\e[32min [$line]\e[0m: ";
-	my $input = <>;
-  chomp($input);
-	$code .= $input;
-	if($input eq "exit"){ exit(0); close(His);}
-	
-	if ($input =~ /print/) {
-  print "\n\e[31mout[$line]\e[0m: ";
-  my $res = eval($code);
-	warn($res) if $@;
+    # Prompt for input
+    my $input = $term->readline("\e[32m[$line]\e[0m: ");
+    chomp($input);
+
+    # Check for exit command
+    if ($input eq 'exit') {
+        close($history_fh);
+        $term->WriteHistory($history_file);
+        print "Exiting...\n";
+        exit(0);
+    }
+
+    # Append input to code
+    $code .= $input . "\n";
+
+    # Check if the input has unbalanced curly braces
+    if (has_unbalanced_braces($code)) {
+        # Wait for more input until the code block is complete
+        print "\e[33m... \e[0m";
+        next;
+    }
+
+    # Evaluate the code
+    print "\n\e[31m[$line]\e[0m: ";
+    my $result = eval($code);
+
+    # Handle syntax errors or warnings
+    if ($@) {
+        warn "Error: $@";
+    } else {
+        print "$result\n" if defined $result;
+    }
+
+    # Save input to history
+    print $history_fh "$input\n";
+    $term->addhistory($input) if $input;
+
+    $line++;
+    $code = '';  # Reset the code buffer after execution
+    print "\n";
 }
-else{
-	print "\n\e[31mout[$line]\e[0m: ";	
-	my $res = eval($code);
-	print "$res";
-	warn($res) if $@;
-}
-	print His "$input \n";
-	$line = $line + 1;
-	print "\n";
-} 
+
